@@ -1,0 +1,64 @@
+.leetcode-problem-card {
+  background: #fff;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.leetcode-problem-card:hover {
+  transform: translateY(-5px);
+}
+
+.leetcode-difficulty {
+  font-weight: bold;
+  margin-bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 12px;
+}
+
+.leetcode-easy {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.leetcode-medium {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.leetcode-hard {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.leetcode-topic {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+.leetcode-title {
+  font-size: 18px;
+  margin: 10px 0;
+  color: #333;
+}
+
+.leetcode-solve-button {
+  display: inline-block;
+  background: #61dafb;
+  color: #fff;
+  padding: 10px 15px;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background 0.3s;
+  border: none;
+  cursor: pointer;
+}
+
+.leetcode-solve-button:hover {
+  background: #21a1f1;
+}
