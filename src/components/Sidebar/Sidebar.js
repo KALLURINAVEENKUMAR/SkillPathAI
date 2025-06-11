@@ -313,10 +313,11 @@ const Sidebar = ({
 
   // FIXED: Enhanced overlay click handling to prevent search area clicks from closing sidebar
   const handleOverlayClick = useCallback((e) => {
-    // Only close if clicking directly on overlay, not its children
-    if (e.target === overlayRef.current) {
-      onToggle();
+    // Don't close sidebar if input is focused (especially on mobile)
+    if (document.activeElement === searchInputRef.current) {
+      return;
     }
+    onToggle(false);
   }, [onToggle]);
 
   // FIXED: Prevent sidebar content clicks from bubbling to overlay
