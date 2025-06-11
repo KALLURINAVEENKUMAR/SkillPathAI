@@ -1,10 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
   X,
-  Trash2,
-  GripVertical,
+  Search,
   // Enhanced icon imports for all topics
   Cpu,
   Network,
@@ -32,7 +31,6 @@ import {
   Wifi,
   BookOpen,
   FileText,
-  Search,
   TreePine,
   Link,
   Layers,
@@ -189,6 +187,12 @@ const iconMap = {
   default: BookOpen
 };
 
+// Function to get icon component based on icon name
+const getTopicIcon = (iconName) => {
+  const IconComponent = iconMap[iconName.toLowerCase()] || iconMap.default;
+  return <IconComponent size={18} />;
+};
+
 const Sidebar = ({ 
   topics = [], 
   isOpen, 
@@ -198,338 +202,237 @@ const Sidebar = ({
   onResize, 
   onTopicSelect 
 }) => {
-  const [isResizing, setIsResizing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef(null);
   const overlayRef = useRef(null);
   const searchInputRef = useRef(null);
-  
-  // Enhanced topic filtering with more robust search
-  const filteredTopics = React.useMemo(() => {
-    if (!searchQuery.trim()) {
-      return topics;
-    }
-    
-    const query = searchQuery.toLowerCase().trim();
-    return topics.filter(topic => {
-      const name = topic.name?.toLowerCase() || '';
-      const description = topic.description?.toLowerCase() || '';
-      
-      return name.includes(query) || 
-             description.includes(query) ||
-             name.split(' ').some(word => word.startsWith(query));
-    });
-  }, [topics, searchQuery]);
 
-  // Enhanced body scroll prevention for mobile
+  // FIXED: Completely disable auto-focus on mobile
   useEffect(() => {
-    if (isMobile) {
-      if (isOpen) {
-        // Store current scroll position
-        const scrollY = window.scrollY;
-        document.body.style.position = 'fixed';
-        document.body.style.top = `-${scrollY}px`;
-        document.body.style.width = '100%';
-        document.body.style.overflow = 'hidden';
-        document.body.classList.add('sidebar-open');
-        
-        // Prevent touch events on body when sidebar is open
-        document.body.addEventListener('touchstart', preventTouch, { passive: false });
-        document.body.addEventListener('touchmove', preventTouch, { passive: false });
-      } else {
-        // Restore scroll position
-        const scrollY = document.body.style.top;
+    // Never auto-focus on mobile to prevent keyboard popup
+    if (!isMobile && isOpen && searchInputRef.current) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, isMobile]);
+
+  // FIXED: Better mobile body scroll prevention
+  useEffect(() => {
+    if (isMobile && isOpen) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      
+      // Prevent body scroll
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('sidebar-open');
+      
+      return () => {
+        // Restore body scroll
         document.body.style.position = '';
         document.body.style.top = '';
         document.body.style.width = '';
+        document.body.style.height = '';
         document.body.style.overflow = '';
         document.body.classList.remove('sidebar-open');
         
-        // Remove touch event listeners
-        document.body.removeEventListener('touchstart', preventTouch);
-        document.body.removeEventListener('touchmove', preventTouch);
-        
-        if (scrollY) {
-          window.scrollTo(0, parseInt(scrollY || '0') * -1);
-        }
-      }
-    }
-
-    function preventTouch(e) {
-      // Allow touch events only inside sidebar
-      if (!sidebarRef.current || !sidebarRef.current.contains(e.target)) {
-        e.preventDefault();
-      }
-    }
-
-    return () => {
-      // Cleanup on unmount
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
-      document.body.classList.remove('sidebar-open');
-      document.body.removeEventListener('touchstart', preventTouch);
-      document.body.removeEventListener('touchmove', preventTouch);
-    };
-  }, [isOpen, isMobile]);
-
-  // Add this useEffect to manage body scroll
-  useEffect(() => {
-    if (isMobile) {
-      if (isOpen) {
-        document.body.classList.add('sidebar-open');
-      } else {
-        document.body.classList.remove('sidebar-open');
-      }
-      
-      // Cleanup on unmount
-      return () => {
-        document.body.classList.remove('sidebar-open');
+        // Restore scroll position
+        window.scrollTo(0, scrollY);
       };
     }
   }, [isOpen, isMobile]);
 
-  const handleMouseDown = useCallback((e) => {
-    if (isMobile) return;
-    
+  // FIXED: Prevent immediate closing with better event handling
+  const handleOverlayClick = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     
-    setIsResizing(true);
-    
-    const startX = e.clientX;
-    const startWidth = width;
-    
-    document.body.classList.add('resizing-cursor');
-    
-    const handleMouseMove = (e) => {
-      const deltaX = e.clientX - startX;
-      const newWidth = startWidth + deltaX;
-      const constrainedWidth = Math.max(200, Math.min(500, newWidth));
-      onResize(constrainedWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      document.body.classList.remove('resizing-cursor');
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, [isMobile, width, onResize]);
-
-  const handleTopicClick = useCallback((topic) => {
-    console.log('Topic clicked:', topic);
-    onTopicSelect(topic);
-    
-    // Close sidebar on mobile after selection
-    if (isMobile) {
-      onToggle();
-    }
-  }, [onTopicSelect, isMobile, onToggle]);
-
-  // FIXED: Enhanced overlay click handling to prevent search area clicks from closing sidebar
-  const handleOverlayClick = useCallback((e) => {
-    // Don't close sidebar if input is focused or keyboard is open
-    if (document.activeElement === searchInputRef.current) {
-      return;
-    }
-    
-    // Don't close if target is inside sidebar
-    if (sidebarRef.current && sidebarRef.current.contains(e.target)) {
-      return;
-    }
-    
-    console.log('Overlay clicked - closing sidebar');
-    onToggle(false);
+    // Add small delay to prevent immediate closing
+    setTimeout(() => {
+      console.log('Overlay clicked - closing sidebar');
+      onToggle(false);
+    }, 100);
   }, [onToggle]);
 
-  // FIXED: Prevent sidebar content clicks from bubbling to overlay
+  // FIXED: Prevent all event bubbling from sidebar
   const handleSidebarClick = useCallback((e) => {
-    // Stop propagation to prevent overlay click
     e.stopPropagation();
+    e.preventDefault();
   }, []);
 
-  // Enhanced search handling with event prevention
+  // FIXED: Close handler with delay on mobile
+  const handleClose = useCallback(() => {
+    console.log('Close button clicked');
+    if (isMobile) {
+      // Small delay on mobile to prevent conflicts
+      setTimeout(() => {
+        onToggle(false);
+      }, 50);
+    } else {
+      onToggle(false);
+    }
+  }, [onToggle, isMobile]);
+
+  // FIXED: Search handlers that don't interfere with mobile
   const handleSearchChange = useCallback((e) => {
-    // FIXED: Stop event propagation to prevent sidebar closing
-    e.stopPropagation();
-    const value = e.target.value;
-    console.log('Search query changed:', value);
-    setSearchQuery(value);
+    setSearchQuery(e.target.value);
   }, []);
 
-  const handleSearchFocus = useCallback((e) => {
-    e.stopPropagation();
-    console.log('Search input focused');
-    setIsSearchFocused(true);
-    
-    // Prevent any blur/focus handlers from closing sidebar
-    e.target.addEventListener('blur', (blurEvent) => {
-      blurEvent.stopPropagation();
-    }, { once: true });
-  }, []);
+  const handleSearchFocus = useCallback(() => {
+    // Only set focus state on desktop
+    if (!isMobile) {
+      setIsSearchFocused(true);
+    }
+  }, [isMobile]);
 
-  // FIXED: Handle search blur without closing sidebar
-  const handleSearchBlur = useCallback((e) => {
-    e.stopPropagation();
-    console.log('Search input blurred');
-    
-    // Use setTimeout to allow other clicks to process first
+  const handleSearchBlur = useCallback(() => {
     setTimeout(() => {
       setIsSearchFocused(false);
-    }, 100);
+    }, 200);
   }, []);
 
-  const handleClearSearch = useCallback((e) => {
-    // FIXED: Prevent clear button click from bubbling
-    e.stopPropagation();
-    console.log('Clearing search');
+  // FIXED: Manual search focus for mobile (user initiated)
+  const handleSearchClick = useCallback(() => {
+    if (isMobile && searchInputRef.current) {
+      searchInputRef.current.focus();
+      setIsSearchFocused(true);
+    }
+  }, [isMobile]);
+
+  const handleClearSearch = useCallback(() => {
     setSearchQuery('');
-    if (searchInputRef.current) {
-      searchInputRef.current.focus();
+    setIsSearchFocused(false);
+    
+    // Blur the input on mobile to hide keyboard
+    if (isMobile && searchInputRef.current) {
+      searchInputRef.current.blur();
     }
-  }, []);
+  }, [isMobile]);
 
-  // FIXED: Handle search wrapper clicks to prevent propagation
-  const handleSearchWrapperClick = useCallback((e) => {
-    e.stopPropagation();
-    // Focus the input when clicking anywhere in the search area
-    if (searchInputRef.current && e.target !== searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, []);
-
-  // Focus search when sidebar opens on mobile
-  useEffect(() => {
-    if (isMobile && isOpen && searchInputRef.current) {
-      // Small delay to ensure sidebar is fully rendered
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 300);
-    }
-  }, [isMobile, isOpen]);
-
-  // FIXED: Professional icon component renderer with comprehensive mapping
-  const getTopicIcon = (iconName) => {
-    const IconComponent = iconMap[iconName] || iconMap.default;
-    return <IconComponent size={isMobile ? 22 : 20} />;
-  };
-
-  useEffect(() => {
-    if (sidebarRef.current) {
-      if (isResizing) {
-        sidebarRef.current.classList.add('resizing');
-      } else {
-        sidebarRef.current.classList.remove('resizing');
-      }
-    }
-  }, [isResizing]);
-
-  // Enhanced overlay animation
-  useEffect(() => {
-    if (overlayRef.current) {
-      if (isOpen) {
-        overlayRef.current.classList.add('show');
-      } else {
-        overlayRef.current.classList.remove('show');
-      }
-    }
-  }, [isOpen]);
-
-  // Fix the handleClose function
-  const handleClose = useCallback(() => {
-    console.log('🔴 Sidebar close button clicked');
-    onToggle(false); // Explicitly pass false to close
-  }, [onToggle]);
-
-  // Alternative: if onToggle is a toggle function, use this instead
-  const handleCloseToggle = useCallback(() => {
-    console.log('🔴 Sidebar toggle close clicked');
-    onToggle(); // Call toggle function
-  }, [onToggle]);
-
-  // Using the handleOverlayClick already defined with useCallback above
-
-  if (!isOpen && !isMobile) {
-    return (
-      <div className="sidebar-collapsed">
-        <button className="sidebar-toggle-btn" onClick={onToggle}>
-          <ChevronRight size={20} />
-        </button>
-      </div>
+  const filteredTopics = useMemo(() => {
+    if (!searchQuery.trim()) return topics;
+    return topics.filter(topic => 
+      topic.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }
+  }, [topics, searchQuery]);
+
+  // FIXED: Handle topic selection with proper mobile cleanup
+  const handleTopicSelect = useCallback((topic) => {
+    console.log('Topic selected:', topic.name);
+    
+    // Clear search and blur input on mobile
+    if (isMobile) {
+      setSearchQuery('');
+      setIsSearchFocused(false);
+      if (searchInputRef.current) {
+        searchInputRef.current.blur();
+      }
+    }
+    
+    // Call the parent handler
+    onTopicSelect(topic);
+    
+    // Close sidebar on mobile with delay
+    if (isMobile) {
+      setTimeout(() => {
+        onToggle(false);
+      }, 100);
+    }
+  }, [isMobile, onTopicSelect, onToggle]);
 
   return (
     <>
+      {/* FIXED: Mobile overlay with better event handling */}
       {isMobile && isOpen && (
         <div 
           ref={overlayRef}
-          className="sidebar-overlay" 
+          className="sidebar-overlay open"
+          onTouchEnd={handleOverlayClick}
           onClick={handleOverlayClick}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            height: '100dvh',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            zIndex: 9998,
+            touchAction: 'none',
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+            userSelect: 'none'
+          }}
         />
       )}
       
+      {/* FIXED: Sidebar with better mobile handling */}
       <div 
         ref={sidebarRef}
-        className={`sidebar ${isOpen ? 'sidebar-open' : 'sidebar-closed'} ${isMobile ? 'sidebar-mobile' : ''}`}
-        style={{ 
-          width: isMobile ? '300px' : `${width}px`,
-        }}
+        className={`sidebar ${isMobile ? 'sidebar-mobile' : ''} ${isOpen ? 'sidebar-open' : 'sidebar-closed'}`}
+        onTouchStart={handleSidebarClick}
+        onTouchEnd={handleSidebarClick}
         onClick={handleSidebarClick}
+        style={{ 
+          width: isMobile ? '85vw' : `${width}px`, // Slightly smaller on mobile
+          maxWidth: isMobile ? '320px' : 'none',
+          zIndex: isMobile ? 9999 : 1000
+        }}
       >
+        {/* Header */}
         <div className="sidebar-header">
           <div className="sidebar-title">
             <h2>SkillNav</h2>
-            <span className="sidebar-subtitle">AI Powered by Naveenkumar Kalluri</span>
-            <h6></h6>
+            <span className="sidebar-subtitle">AI Powered</span>
           </div>
           <button 
             className="sidebar-close-btn" 
             onClick={handleClose}
-            onTouchStart={(e) => e.stopPropagation()}
-            aria-label="Close sidebar"
+            onTouchEnd={handleClose}
             type="button"
+            aria-label="Close sidebar"
           >
-            {/* FIXED: Remove X icon, use ChevronLeft for all screen sizes */}
             <ChevronLeft size={isMobile ? 24 : 20} />
           </button>
         </div>
 
-        {/* Search section */}
-        <div className="sidebar-search" onClick={handleSearchWrapperClick}>
+        {/* FIXED: Search section with mobile optimization */}
+        <div className="sidebar-search">
           <div className={`search-input-wrapper ${isSearchFocused ? 'focused' : ''}`}>
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search topics..."
+              placeholder={isMobile ? "Tap to search..." : "Search topics..."}
               value={searchQuery}
               onChange={handleSearchChange}
               onFocus={handleSearchFocus}
               onBlur={handleSearchBlur}
-              onClick={handleSearchChange}
-              onTouchStart={(e) => e.stopPropagation()}
+              onClick={handleSearchClick}
               className="sidebar-search-input"
               autoComplete="off"
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck="false"
-              inputMode="text"
-              enterKeyHint="search"
+              // FIXED: Prevent auto-zoom on iOS
+              style={{ fontSize: isMobile ? '16px' : '14px' }}
+              // FIXED: Only enable input when user explicitly wants to search
+              readOnly={isMobile && !isSearchFocused}
             />
             
             {searchQuery && (
               <button
                 className="search-clear-btn"
                 onClick={handleClearSearch}
-                onTouchStart={(e) => e.stopPropagation()}
-                aria-label="Clear search"
+                onTouchEnd={handleClearSearch}
                 type="button"
+                aria-label="Clear search"
               >
                 <X size={14} />
               </button>
@@ -554,7 +457,12 @@ const Sidebar = ({
                   <button
                     key={`${topic.name}-${index}`}
                     className="topic-item"
-                    onClick={() => handleTopicClick(topic)}
+                    onClick={() => handleTopicSelect(topic)}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleTopicSelect(topic);
+                    }}
                     style={{ 
                       '--topic-color': topic.color,
                       animationDelay: `${index * 0.05}s`
@@ -587,7 +495,7 @@ const Sidebar = ({
             </div>
           </div>
 
-          {/* Keep your existing footer */}
+          {/* Footer */}
           <div className="sidebar-footer">
             <div className="footer-stats">
               <div className="stat-item">
@@ -601,16 +509,6 @@ const Sidebar = ({
             </div>
           </div>
         </div>
-
-        {!isMobile && (
-          <div 
-            className={`sidebar-resizer ${isResizing ? 'resizing' : ''}`}
-            onMouseDown={handleMouseDown}
-            aria-label="Resize sidebar"
-          >
-            <GripVertical size={16} />
-          </div>
-        )}
       </div>
     </>
   );

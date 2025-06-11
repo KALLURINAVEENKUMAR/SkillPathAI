@@ -99,14 +99,25 @@ function App() {
     }
   }, []);
 
-  // Sidebar toggle function - this should toggle the state
+  // Update the handleSidebarToggle function
   const handleSidebarToggle = useCallback(() => {
     console.log('📱 Sidebar toggle clicked, current state:', isSidebarOpen);
-    setIsSidebarOpen(prev => {
-      console.log('📱 Changing sidebar state from', prev, 'to', !prev);
-      return !prev;
-    });
-  }, [isSidebarOpen]);
+    
+    if (isMobile) {
+      // Add small delay on mobile to prevent conflicts
+      setTimeout(() => {
+        setIsSidebarOpen(prev => {
+          console.log('📱 Changing sidebar state from', prev, 'to', !prev);
+          return !prev;
+        });
+      }, 50);
+    } else {
+      setIsSidebarOpen(prev => {
+        console.log('📱 Changing sidebar state from', prev, 'to', !prev);
+        return !prev;
+      });
+    }
+  }, [isSidebarOpen, isMobile]);
 
   // Alternative: Direct setter function
   const handleSidebarClose = useCallback(() => {
