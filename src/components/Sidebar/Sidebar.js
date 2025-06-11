@@ -231,17 +231,35 @@ const Sidebar = ({
         document.body.style.position = 'fixed';
         document.body.style.top = `-${scrollY}px`;
         document.body.style.width = '100%';
+        document.body.style.overflow = 'hidden';
         document.body.classList.add('sidebar-open');
+        
+        // Prevent touch events on body when sidebar is open
+        document.body.addEventListener('touchstart', preventTouch, { passive: false });
+        document.body.addEventListener('touchmove', preventTouch, { passive: false });
       } else {
         // Restore scroll position
         const scrollY = document.body.style.top;
         document.body.style.position = '';
         document.body.style.top = '';
         document.body.style.width = '';
+        document.body.style.overflow = '';
         document.body.classList.remove('sidebar-open');
+        
+        // Remove touch event listeners
+        document.body.removeEventListener('touchstart', preventTouch);
+        document.body.removeEventListener('touchmove', preventTouch);
+        
         if (scrollY) {
           window.scrollTo(0, parseInt(scrollY || '0') * -1);
         }
+      }
+    }
+
+    function preventTouch(e) {
+      // Allow touch events only inside sidebar
+      if (!sidebarRef.current || !sidebarRef.current.contains(e.target)) {
+        e.preventDefault();
       }
     }
 
@@ -250,7 +268,10 @@ const Sidebar = ({
       document.body.style.position = '';
       document.body.style.top = '';
       document.body.style.width = '';
+      document.body.style.overflow = '';
       document.body.classList.remove('sidebar-open');
+      document.body.removeEventListener('touchstart', preventTouch);
+      document.body.removeEventListener('touchmove', preventTouch);
     };
   }, [isOpen, isMobile]);
 
@@ -313,10 +334,17 @@ const Sidebar = ({
 
   // FIXED: Enhanced overlay click handling to prevent search area clicks from closing sidebar
   const handleOverlayClick = useCallback((e) => {
-    // Don't close sidebar if input is focused (especially on mobile)
+    // Don't close sidebar if input is focused or keyboard is open
     if (document.activeElement === searchInputRef.current) {
       return;
     }
+    
+    // Don't close if target is inside sidebar
+    if (sidebarRef.current && sidebarRef.current.contains(e.target)) {
+      return;
+    }
+    
+    console.log('Overlay clicked - closing sidebar');
     onToggle(false);
   }, [onToggle]);
 
@@ -336,17 +364,25 @@ const Sidebar = ({
   }, []);
 
   const handleSearchFocus = useCallback((e) => {
-    // FIXED: Prevent focus event from bubbling
     e.stopPropagation();
     console.log('Search input focused');
     setIsSearchFocused(true);
+    
+    // Prevent any blur/focus handlers from closing sidebar
+    e.target.addEventListener('blur', (blurEvent) => {
+      blurEvent.stopPropagation();
+    }, { once: true });
   }, []);
 
+  // FIXED: Handle search blur without closing sidebar
   const handleSearchBlur = useCallback((e) => {
-    // FIXED: Prevent blur event from bubbling
     e.stopPropagation();
     console.log('Search input blurred');
-    setIsSearchFocused(false);
+    
+    // Use setTimeout to allow other clicks to process first
+    setTimeout(() => {
+      setIsSearchFocused(false);
+    }, 100);
   }, []);
 
   const handleClearSearch = useCallback((e) => {
