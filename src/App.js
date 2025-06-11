@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header/Header';
 import SearchInput from './components/SearchInput/SearchInput';
 import SkillRoadmap from './components/SkillRoadmap/SkillRoadmap';
@@ -6,6 +7,7 @@ import LeetcodeSection from './components/LeetcodeSection/LeetcodeSection';
 import Footer from './components/Footer/Footer';
 import LoadingSpinner from './components/LoadingSpinner/LoadingSpinner';
 import Sidebar from './components/Sidebar/Sidebar';
+import TopicDetails from './components/TopicDetails/TopicDetails';
 import { generateSkillPath } from './services/skillPathGenerator';
 import { testOpenAI } from './utils/testAI';
 import { topics } from './data/topics';
@@ -13,7 +15,8 @@ import './styles/variables.css';
 import './styles/globals.css';
 import './App.css';
 
-function App() {
+// FIXED: Create a separate component that uses useNavigate
+function AppContent() {
   const [jobTitle, setJobTitle] = useState('');
   const [skills, setSkills] = useState([]);
   const [sortOrder, setSortOrder] = useState('easy-to-hard');
@@ -99,7 +102,6 @@ function App() {
     }
   }, []);
 
-  // Update the handleSidebarToggle function
   const handleSidebarToggle = useCallback(() => {
     console.log('📱 Sidebar toggle clicked, current state:', isSidebarOpen);
     
@@ -119,7 +121,6 @@ function App() {
     }
   }, [isSidebarOpen, isMobile]);
 
-  // Alternative: Direct setter function
   const handleSidebarClose = useCallback(() => {
     console.log('❌ Closing sidebar');
     setIsSidebarOpen(false);
@@ -129,13 +130,17 @@ function App() {
     setSidebarWidth(Math.max(200, Math.min(400, newWidth)));
   }, []);
 
+  // FIXED: Move handleTopicSelect to a separate component that uses navigation
   const handleTopicSelect = useCallback((topic) => {
     console.log('🎯 Topic selected:', topic);
-    handleSearch(topic.name);
+    
+    // Navigate using window.location for now (we'll fix this in the separate component)
+    window.location.href = `/topic/${encodeURIComponent(topic.name)}`;
+    
     if (isMobile) {
       setIsSidebarOpen(false);
     }
-  }, [handleSearch, isMobile]);
+  }, [isMobile]);
 
   const handleClearResults = useCallback(() => {
     setSkills([]);
@@ -158,7 +163,56 @@ function App() {
   }, [isSidebarOpen]);
 
   return (
-    <div className={`app ${isSidebarOpen && !isMobile ? 'sidebar-open' : 'sidebar-closed'}`}>
+    <Routes>
+      {/* Home page route */}
+      <Route 
+        path="/" 
+        element={
+          <HomePage 
+            jobTitle={jobTitle}
+            skills={skills}
+            sortOrder={sortOrder}
+            isLoading={isLoading}
+            error={error}
+            setError={setError}
+            isSidebarOpen={isSidebarOpen}
+            sidebarWidth={sidebarWidth}
+            isMobile={isMobile}
+            handleSearch={handleSearch}
+            handleSidebarToggle={handleSidebarToggle}
+            handleSidebarClose={handleSidebarClose}
+            handleSidebarResize={handleSidebarResize}
+            handleTopicSelect={handleTopicSelect}
+            handleClearResults={handleClearResults}
+          />
+        } 
+      />
+      
+      {/* Topic details route */}
+      <Route path="/topic/:topicName" element={<TopicDetails />} />
+    </Routes>
+  );
+}
+
+function HomePage({ 
+  jobTitle,
+  skills,
+  sortOrder,
+  isLoading,
+  error,
+  setError,
+  isSidebarOpen,
+  sidebarWidth,
+  isMobile,
+  handleSearch,
+  handleSidebarToggle,
+  handleSidebarClose,
+  handleSidebarResize,
+  handleTopicSelect,
+  handleClearResults
+}) {
+  return (
+    <div className="app">
       {/* FIXED: Conditionally render header based on sidebar state */}
       {!isSidebarOpen && (
         <Header 
@@ -173,9 +227,7 @@ function App() {
         isOpen={isSidebarOpen}
         width={sidebarWidth}
         isMobile={isMobile}
-        onToggle={handleSidebarToggle} // For toggle behavior
-        // OR use this for explicit close:
-        // onToggle={handleSidebarClose} 
+        onToggle={handleSidebarToggle}
         onResize={handleSidebarResize}
         onTopicSelect={handleTopicSelect}
       />
@@ -287,6 +339,15 @@ function App() {
         <Footer />
       </div>
     </div>
+  );
+}
+
+// FIXED: Main App component with Router wrapper
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 

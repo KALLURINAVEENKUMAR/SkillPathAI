@@ -208,6 +208,7 @@ const Sidebar = ({
   const sidebarRef = useRef(null);
   const overlayRef = useRef(null);
   const searchInputRef = useRef(null);
+  const sidebarContentRef = useRef(null);
 
   // FIXED: Completely disable auto-focus on mobile
   useEffect(() => {
@@ -223,14 +224,12 @@ const Sidebar = ({
   // FIXED: Better mobile body scroll prevention
   useEffect(() => {
     if (isMobile && isOpen) {
-      // Save current scroll position
       const scrollY = window.scrollY;
       
-      // Prevent body scroll
+      // Simpler body scroll prevention
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
-      document.body.style.height = '100%';
       document.body.style.overflow = 'hidden';
       document.body.classList.add('sidebar-open');
       
@@ -239,7 +238,6 @@ const Sidebar = ({
         document.body.style.position = '';
         document.body.style.top = '';
         document.body.style.width = '';
-        document.body.style.height = '';
         document.body.style.overflow = '';
         document.body.classList.remove('sidebar-open');
         
@@ -249,9 +247,9 @@ const Sidebar = ({
     }
   }, [isOpen, isMobile]);
 
-  // FIXED: Prevent immediate closing with better event handling
+  // FIXED: Remove preventDefault from passive event listeners
   const handleOverlayClick = useCallback((e) => {
-    e.preventDefault();
+    // Don't call preventDefault on passive listeners
     e.stopPropagation();
     
     // Add small delay to prevent immediate closing
@@ -261,10 +259,10 @@ const Sidebar = ({
     }, 100);
   }, [onToggle]);
 
-  // FIXED: Prevent all event bubbling from sidebar
+  // FIXED: Better sidebar click handling
   const handleSidebarClick = useCallback((e) => {
     e.stopPropagation();
-    e.preventDefault();
+    // Don't prevent default here as it conflicts with form inputs
   }, []);
 
   // FIXED: Close handler with delay on mobile
@@ -280,28 +278,53 @@ const Sidebar = ({
     }
   }, [onToggle, isMobile]);
 
+  // FIXED: Better touch event handling for topic selection
+  const handleTopicSelect = useCallback((topic) => {
+    console.log('Topic selected:', topic.name);
+    
+    // Clear search and blur input on mobile
+    if (isMobile) {
+      setSearchQuery('');
+      setIsSearchFocused(false);
+      if (searchInputRef.current) {
+        searchInputRef.current.blur();
+      }
+    }
+    
+    // Call the parent handler (which will navigate to topic details)
+    onTopicSelect(topic);
+    
+    // Close sidebar on mobile with delay
+    if (isMobile) {
+      setTimeout(() => {
+        onToggle(false);
+      }, 100);
+    }
+  }, [isMobile, onTopicSelect, onToggle]);
+
   // FIXED: Search handlers that don't interfere with mobile
   const handleSearchChange = useCallback((e) => {
+    console.log('Search query changed:', e.target.value);
     setSearchQuery(e.target.value);
   }, []);
 
+  // FIXED: Better search input focus handling
   const handleSearchFocus = useCallback(() => {
-    // Only set focus state on desktop
-    if (!isMobile) {
-      setIsSearchFocused(true);
-    }
-  }, [isMobile]);
+    console.log('Search input focused');
+    setIsSearchFocused(true);
+  }, []);
 
   const handleSearchBlur = useCallback(() => {
+    console.log('Search input blurred');
     setTimeout(() => {
       setIsSearchFocused(false);
     }, 200);
   }, []);
 
-  // FIXED: Manual search focus for mobile (user initiated)
+  // FIXED: Better search click handling for mobile
   const handleSearchClick = useCallback(() => {
-    if (isMobile && searchInputRef.current) {
-      searchInputRef.current.focus();
+    console.log('Search input clicked');
+    if (isMobile) {
       setIsSearchFocused(true);
     }
   }, [isMobile]);
@@ -323,38 +346,25 @@ const Sidebar = ({
     );
   }, [topics, searchQuery]);
 
-  // FIXED: Handle topic selection with proper mobile cleanup
-  const handleTopicSelect = useCallback((topic) => {
-    console.log('Topic selected:', topic.name);
-    
-    // Clear search and blur input on mobile
-    if (isMobile) {
-      setSearchQuery('');
-      setIsSearchFocused(false);
-      if (searchInputRef.current) {
-        searchInputRef.current.blur();
+  // FIXED: Smooth scroll behavior for topic list
+  useEffect(() => {
+    if (sidebarContentRef.current) {
+      // Remove smooth scrolling on mobile for better performance
+      if (isMobile) {
+        sidebarContentRef.current.style.scrollBehavior = 'auto';
+      } else {
+        sidebarContentRef.current.style.scrollBehavior = 'smooth';
       }
     }
-    
-    // Call the parent handler
-    onTopicSelect(topic);
-    
-    // Close sidebar on mobile with delay
-    if (isMobile) {
-      setTimeout(() => {
-        onToggle(false);
-      }, 100);
-    }
-  }, [isMobile, onTopicSelect, onToggle]);
+  }, [isMobile]);
 
   return (
     <>
-      {/* FIXED: Mobile overlay with better event handling */}
+      {/* FIXED: Mobile overlay with proper event handling */}
       {isMobile && isOpen && (
         <div 
           ref={overlayRef}
           className="sidebar-overlay open"
-          onTouchEnd={handleOverlayClick}
           onClick={handleOverlayClick}
           style={{
             position: 'fixed',
@@ -373,15 +383,13 @@ const Sidebar = ({
         />
       )}
       
-      {/* FIXED: Sidebar with better mobile handling */}
+      {/* FIXED: Sidebar with better event handling */}
       <div 
         ref={sidebarRef}
         className={`sidebar ${isMobile ? 'sidebar-mobile' : ''} ${isOpen ? 'sidebar-open' : 'sidebar-closed'}`}
-        onTouchStart={handleSidebarClick}
-        onTouchEnd={handleSidebarClick}
         onClick={handleSidebarClick}
         style={{ 
-          width: isMobile ? '85vw' : `${width}px`, // Slightly smaller on mobile
+          width: isMobile ? '85vw' : `${width}px`,
           maxWidth: isMobile ? '320px' : 'none',
           zIndex: isMobile ? 9999 : 1000
         }}
@@ -390,12 +398,11 @@ const Sidebar = ({
         <div className="sidebar-header">
           <div className="sidebar-title">
             <h2>SkillNav</h2>
-            <span className="sidebar-subtitle">AI Powered</span>
+            <span className="sidebar-subtitle">AI Powered By Naveenkumar Kalluri</span>
           </div>
           <button 
             className="sidebar-close-btn" 
             onClick={handleClose}
-            onTouchEnd={handleClose}
             type="button"
             aria-label="Close sidebar"
           >
@@ -403,7 +410,7 @@ const Sidebar = ({
           </button>
         </div>
 
-        {/* FIXED: Search section with mobile optimization */}
+        {/* FIXED: Search section with proper event handling */}
         <div className="sidebar-search">
           <div className={`search-input-wrapper ${isSearchFocused ? 'focused' : ''}`}>
             <input
@@ -420,17 +427,14 @@ const Sidebar = ({
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck="false"
-              // FIXED: Prevent auto-zoom on iOS
               style={{ fontSize: isMobile ? '16px' : '14px' }}
-              // FIXED: Only enable input when user explicitly wants to search
-              readOnly={isMobile && !isSearchFocused}
+              // FIXED: Remove readOnly as it prevents searching
             />
             
             {searchQuery && (
               <button
                 className="search-clear-btn"
                 onClick={handleClearSearch}
-                onTouchEnd={handleClearSearch}
                 type="button"
                 aria-label="Clear search"
               >
@@ -446,7 +450,10 @@ const Sidebar = ({
           )}
         </div>
 
-        <div className="sidebar-content">
+        <div 
+          ref={sidebarContentRef}
+          className="sidebar-content"
+        >
           <div className="topics-section">
             <h3 className="section-title">
               {searchQuery ? 'Search Results' : 'Computer Science Topics'}
@@ -458,11 +465,6 @@ const Sidebar = ({
                     key={`${topic.name}-${index}`}
                     className="topic-item"
                     onClick={() => handleTopicSelect(topic)}
-                    onTouchEnd={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleTopicSelect(topic);
-                    }}
                     style={{ 
                       '--topic-color': topic.color,
                       animationDelay: `${index * 0.05}s`
@@ -499,13 +501,15 @@ const Sidebar = ({
           <div className="sidebar-footer">
             <div className="footer-stats">
               <div className="stat-item">
-                <span className="stat-number">{filteredTopics.length}</span>
-                <span className="stat-label">{searchQuery ? 'Found' : 'Topics'}</span>
+                <span className="stat-number">{searchQuery ? filteredTopics.length : topics.length}</span>
+                <span className="stat-label">{searchQuery ? 'Results' : 'Topics'}</span>
               </div>
-              <div className="stat-item">
-                <span className="stat-number">{topics.length}</span>
-                <span className="stat-label">Total</span>
-              </div>
+              {searchQuery && (
+                <div className="stat-item">
+                  <span className="stat-number">{topics.length}</span>
+                  <span className="stat-label">Total</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
