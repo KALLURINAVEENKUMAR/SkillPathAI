@@ -247,22 +247,22 @@ const Sidebar = ({
     }
   }, [isOpen, isMobile]);
 
-  // FIXED: Remove preventDefault from passive event listeners
+  // FIXED: Better overlay click handling that doesn't interfere with search
   const handleOverlayClick = useCallback((e) => {
-    // Don't call preventDefault on passive listeners
-    e.stopPropagation();
-    
-    // Add small delay to prevent immediate closing
-    setTimeout(() => {
+    // Only close if clicking directly on the overlay, not its children
+    if (e.target === e.currentTarget) {
+      e.stopPropagation();
       console.log('Overlay clicked - closing sidebar');
-      onToggle(false);
-    }, 100);
+      setTimeout(() => {
+        onToggle(false);
+      }, 100);
+    }
   }, [onToggle]);
 
-  // FIXED: Better sidebar click handling
+  // FIXED: Better sidebar click handling that prevents closure during search
   const handleSidebarClick = useCallback((e) => {
     e.stopPropagation();
-    // Don't prevent default here as it conflicts with form inputs
+    // Prevent sidebar from closing when clicking inside
   }, []);
 
   // FIXED: Close handler with delay on mobile
@@ -302,34 +302,52 @@ const Sidebar = ({
     }
   }, [isMobile, onTopicSelect, onToggle]);
 
-  // FIXED: Search handlers that don't interfere with mobile
-  const handleSearchChange = useCallback((e) => {
-    console.log('Search query changed:', e.target.value);
-    setSearchQuery(e.target.value);
+  // FIXED: Search input click handler that prevents sidebar closure
+  const handleSearchClick = useCallback((e) => {
+    console.log('Search input clicked');
+    e.stopPropagation(); // Prevent event bubbling
+    
+    if (isMobile) {
+      setIsSearchFocused(true);
+      // Focus the input after state update
+      setTimeout(() => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }, 50);
+    }
+  }, [isMobile]);
+
+  // FIXED: Search wrapper click handler
+  const handleSearchWrapperClick = useCallback((e) => {
+    e.stopPropagation(); // Prevent event bubbling to sidebar/overlay
   }, []);
 
-  // FIXED: Better search input focus handling
-  const handleSearchFocus = useCallback(() => {
+  // FIXED: Better search focus handling
+  const handleSearchFocus = useCallback((e) => {
     console.log('Search input focused');
+    e.stopPropagation();
     setIsSearchFocused(true);
   }, []);
 
-  const handleSearchBlur = useCallback(() => {
+  const handleSearchBlur = useCallback((e) => {
     console.log('Search input blurred');
+    e.stopPropagation();
     setTimeout(() => {
       setIsSearchFocused(false);
     }, 200);
   }, []);
 
-  // FIXED: Better search click handling for mobile
-  const handleSearchClick = useCallback(() => {
-    console.log('Search input clicked');
-    if (isMobile) {
-      setIsSearchFocused(true);
-    }
-  }, [isMobile]);
+  // FIXED: Search change handler
+  const handleSearchChange = useCallback((e) => {
+    console.log('Search query changed:', e.target.value);
+    e.stopPropagation();
+    setSearchQuery(e.target.value);
+  }, []);
 
-  const handleClearSearch = useCallback(() => {
+  // FIXED: Clear search handler
+  const handleClearSearch = useCallback((e) => {
+    e.stopPropagation(); // Prevent event bubbling
     setSearchQuery('');
     setIsSearchFocused(false);
     
@@ -360,7 +378,7 @@ const Sidebar = ({
 
   return (
     <>
-      {/* FIXED: Mobile overlay with proper event handling */}
+      {/* FIXED: Mobile overlay with better event handling */}
       {isMobile && isOpen && (
         <div 
           ref={overlayRef}
@@ -410,8 +428,11 @@ const Sidebar = ({
           </button>
         </div>
 
-        {/* FIXED: Search section with proper event handling */}
-        <div className="sidebar-search">
+        {/* FIXED: Search section with proper event isolation */}
+        <div 
+          className="sidebar-search"
+          onClick={handleSearchWrapperClick} // Prevent event bubbling
+        >
           <div className={`search-input-wrapper ${isSearchFocused ? 'focused' : ''}`}>
             <input
               ref={searchInputRef}
@@ -428,7 +449,6 @@ const Sidebar = ({
               autoCorrect="off"
               spellCheck="false"
               style={{ fontSize: isMobile ? '16px' : '14px' }}
-              // FIXED: Remove readOnly as it prevents searching
             />
             
             {searchQuery && (
